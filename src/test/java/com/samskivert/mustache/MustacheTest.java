@@ -5,6 +5,8 @@
 package com.samskivert.mustache;
 
 import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
 import java.io.Writer;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
@@ -27,6 +29,18 @@ import static org.junit.Assert.fail;
  */
 public class MustacheTest extends SharedTests
 {
+    @Test public void partialInheritsDelims () {
+        test(Mustache.compiler().withLoader(new Mustache.TemplateLoader() {
+            public Reader getTemplate (String name) {
+                if (name.equals("foo")) {
+                    return new StringReader("inside:{{bar}}");
+                } else {
+                    return new StringReader("{{nonbar}} ##nonbar## ##=__ __=##__nonbar____=## ##=__");
+                }
+            }
+        }), "foo inside:foo {{nonbar}} nonfoo nonfoo foo", "{{bar}} {{>foo}}{{=## ##=}} ##>baz## ##={{ }}=##{{bar}}", context("bar", "foo", "nonbar", "nonfoo"));
+    }
+
     @Test public void testFieldVariable () {
         test("bar", "{{foo}}", new Object() {
             String foo = "bar";

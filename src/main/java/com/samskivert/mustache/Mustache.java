@@ -13,6 +13,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Provides <a href="http://mustache.github.com/">Mustache</a> templating services.
@@ -191,6 +192,16 @@ public class Mustache {
                                 this.missingIsNull, this.emptyStringIsFalse, this.zeroIsFalse,
                                 this.formatter, this.escaper, this.loader, this.collector,
                                 new Delims().updateDelims(delims));
+        }
+
+        /** Returns a compiler configured to use the supplied delims as default delimiters.
+         * @param delims a string of the form {@code AB CD} or {@code A D} where A and B are
+         * opening delims and C and D are closing delims. */
+        public Compiler withDelims (Delims delims) {
+            return new Compiler(this.standardsMode, this.strictSections, this.nullValue,
+                this.missingIsNull, this.emptyStringIsFalse, this.zeroIsFalse,
+                this.formatter, this.escaper, this.loader, this.collector,
+                delims);
         }
 
         /** Returns the value to use in the template for the null-valued property {@code name}. See
@@ -570,7 +581,7 @@ public class Mustache {
                             text.replace(0, 1, "&");
                         }
                         // process the tag between the mustaches
-                        accum = accum.addTagSegment(text, line);
+                        accum = accum.addTagSegment(text, line, delims);
                     }
                     state = TEXT;
 
@@ -654,6 +665,26 @@ public class Mustache {
             return "Invalid delimiter configuration '" + dtext + "'. Must be of the " +
                 "form {{=1 2=}} or {{=12 34=}} where 1, 2, 3 and 4 are delimiter chars.";
         }
+
+        @Override
+        public boolean equals(final Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            final Delims delims = (Delims) o;
+            return start1 == delims.start1 &&
+                end1 == delims.end1 &&
+                start2 == delims.start2 &&
+                end2 == delims.end2;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(start1, end1, start2, end2);
+        }
     }
 
     protected static class Accumulator {
@@ -669,7 +700,7 @@ public class Mustache {
             }
         }
 
-        public Accumulator addTagSegment (final StringBuilder accum, final int tagLine) {
+        public Accumulator addTagSegment (final StringBuilder accum, final int tagLine, final Delims delims) {
             final Accumulator outer = this;
             String tag = accum.toString().trim();
             final String tag1 = tag.substring(1).trim();
@@ -691,7 +722,7 @@ public class Mustache {
                 };
 
             case '>':
-                _segs.add(new IncludedTemplateSegment(_comp, tag1));
+                _segs.add(new IncludedTemplateSegment(_comp, tag1, delims));
                 return this;
 
             case '^':
@@ -821,8 +852,8 @@ public class Mustache {
 
     /** A segment that loads and executes a sub-template. */
     protected static class IncludedTemplateSegment extends Template.Segment {
-        public IncludedTemplateSegment (Compiler compiler, String name) {
-            _comp = compiler;
+        public IncludedTemplateSegment (Compiler compiler, String name, Delims delims) {
+            _comp = delims.equals(compiler.delims) ? compiler : compiler.withDelims(delims.copy());
             _name = name;
         }
         @Override public void execute (Template tmpl, Template.Context ctx, Writer out) {
